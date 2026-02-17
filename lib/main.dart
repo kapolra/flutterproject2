@@ -1,118 +1,179 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'add_travel_page.dart';
 
 void main() => runApp(const MyApp());
 
-// แอปหลัก
+//////////////////////////////////////////////////////////////
+// ✅ CONFIG (แก้ตรงนี้ถ้าเปลี่ยนเครื่อง)
+//////////////////////////////////////////////////////////////
+
+const String baseUrl =
+    "http://127.0.0.1/flutterproject2/php.api/";
+
+//////////////////////////////////////////////////////////////
+// ✅ APP ROOT
+//////////////////////////////////////////////////////////////
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(home: TravelList()); // กำหนดหน้าแรกเป็น TravelList
+    return const MaterialApp(
+      home: travelList(),
+      debugShowCheckedModeBanner: false,
+    );
   }
 }
 
-// สร้าง Widget สำหรับรายการสินค้า
-class TravelList extends StatefulWidget {
-  const TravelList({super.key});
+//////////////////////////////////////////////////////////////
+// ✅ travel LIST PAGEF
+//////////////////////////////////////////////////////////////
+
+class travelList extends StatefulWidget {
+  const travelList({super.key});
 
   @override
-  _TravelListState createState() => _TravelListState();
+  State<travelList> createState() => _travelListState();
 }
 
-class _TravelListState extends State<TravelList> {
-  List Travels = []; // เก็บข้อมูลสินค้าทั้งหมด
-  List filteredTravels = []; // เก็บข้อมูลสินค้าที่ค้นหา
-  TextEditingController searchController = TextEditingController(); // ตัวควบคุมช่องค้นหา
+class _travelListState extends State<travelList> {
+  List travels = [];
+  List filteredtravels = [];
+  final TextEditingController searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    fetchTravels(); // เรียก API เมื่อโหลดหน้าครั้งแรก
+    fetchtravels();
   }
 
-  // ฟังก์ชันดึงข้อมูลสินค้าจาก API
-  Future<void> fetchTravels() async {
+  ////////////////////////////////////////////////////////////
+  // ✅ FETCH DATA
+  ////////////////////////////////////////////////////////////
+
+  Future<void> fetchtravels() async {
     try {
       final response = await http.get(
-        Uri.parse('http://localhost/flutter_travel_image/show_travel/php.api/show_travel.php'),
+        Uri.parse("${baseUrl}show_travel.php"),
       );
+
       if (response.statusCode == 200) {
         setState(() {
-          Travels = json.decode(response.body); // แปลง JSON เป็น List
-          filteredTravels = Travels; // เริ่มต้นให้แสดงสินค้าทั้งหมด
+          travels = json.decode(response.body);
+          filteredtravels = travels;
         });
-      } else {
-        print('Failed to load Travels: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error fetching Travels: $e');
+      debugPrint("Error: $e");
     }
   }
 
-  // ฟังก์ชันกรองสินค้าจากการค้นหา
-  void filterTravels(String query) {
+  ////////////////////////////////////////////////////////////
+  // ✅ SEARCH
+  ////////////////////////////////////////////////////////////
+
+  void filtertravels(String query) {
     setState(() {
-      filteredTravels = Travels.where((Travel) {
-        final name = Travel['name']?.toLowerCase() ?? '';
-        return name.contains(query.toLowerCase()); // ค้นหาจากชื่อสินค้า
+      filteredtravels = travels.where((travel) {
+        final name = travel['name']?.toLowerCase() ?? '';
+        return name.contains(query.toLowerCase());
       }).toList();
     });
   }
 
+  ////////////////////////////////////////////////////////////
+  // ✅ UI
+  ////////////////////////////////////////////////////////////
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Travel List')), // แถบหัวข้อ
+      appBar: AppBar(title: const Text('travel List')),
+
       body: Column(
         children: [
-          // ช่องค้นหาสินค้า
+
+          //////////////////////////////////////////////////////
+          // 🔍 SEARCH BOX
+          //////////////////////////////////////////////////////
+
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: TextField(
               controller: searchController,
               decoration: const InputDecoration(
-                labelText: 'Search by Travel name',
+                labelText: 'Search by travel name',
                 prefixIcon: Icon(Icons.search),
               ),
-              onChanged: filterTravels, // เรียก filterTravels เมื่อพิมพ์
+              onChanged: filtertravels,
             ),
           ),
-          // แสดงรายการสินค้า
+
+          //////////////////////////////////////////////////////
+          // 📦 travel LIST
+          //////////////////////////////////////////////////////
+
           Expanded(
-            child: filteredTravels.isEmpty
-                ? const Center(child: CircularProgressIndicator()) // โหลดข้อมูล
+            child: filteredtravels.isEmpty
+                ? const Center(child: CircularProgressIndicator())
                 : ListView.builder(
-                    itemCount: filteredTravels.length,
+                    itemCount: filteredtravels.length,
                     itemBuilder: (context, index) {
-                      final Travel = filteredTravels[index];
-                      String imageAsset =
-                          'images/${Travel['image'] ?? 'default.png'}';
+                      final travel = filteredtravels[index];
+
+                      //////////////////////////////////////////////////////
+                      // ✅ IMAGE URL (สำคัญมาก)
+                      //////////////////////////////////////////////////////
+
+                     String imageUrl =
+                         "${baseUrl}images/${travel['image']}";
+    
                       return Card(
                         child: ListTile(
+
+                          //////////////////////////////////////////////////
+                          // 🖼 IMAGE FROM SERVER
+                          //////////////////////////////////////////////////
+
                           leading: SizedBox(
                             width: 80,
                             height: 80,
-                            child: Image.asset(
-                              imageAsset,
+                            child: Image.network(
+                              imageUrl,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(Icons.error); // กรณีโหลดภาพไม่ได้
-                              },
+                              errorBuilder: (_, __, ___) =>
+                                  const Icon(Icons.image_not_supported),
                             ),
                           ),
-                          title: Text(Travel['name'] ?? 'No Name'), // ชื่อสินค้า
+
+                          //////////////////////////////////////////////////
+                          // 🏷 NAME
+                          //////////////////////////////////////////////////
+
+                          title: Text(travel['name'] ?? 'No Name'),
+
+                          //////////////////////////////////////////////////
+                          // 📝 DESCRIPTION
+                          //////////////////////////////////////////////////
+
                           subtitle: Text(
-                            Travel['description'] ?? 'No Description', // รายละเอียดสินค้า
+                            travel['description'] ?? 'No Description',
                           ),
-                          trailing: Text('฿${Travel['price'] ?? '0.00'}'), // ราคา
+
+
+                          //////////////////////////////////////////////////
+                          // 👉 DETAIL PAGE
+                          //////////////////////////////////////////////////
+
                           onTap: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => TravelDetail(Travel: Travel),
+                                builder: (_) =>
+                                    travelDetail(travel: travel),
                               ),
                             );
                           },
@@ -123,52 +184,102 @@ class _TravelListState extends State<TravelList> {
           ),
         ],
       ),
+
+      ////////////////////////////////////////////////////////
+      // ✅ ADD BUTTON
+      ///////////////////////////////////////////////////////
+
+      floatingActionButton: FloatingActionButton(
+        child: const Icon(Icons.add),
+
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const AddTravelPage(),
+            ),
+          ).then((value) {
+            fetchtravels(); // ✅ รีโหลดหลังเพิ่มสินค้า
+          });
+        },
+      ),
     );
   }
 }
 
-// หน้ารายละเอียดสินค้า
-class TravelDetail extends StatelessWidget {
-  final dynamic Travel;
-  const TravelDetail({super.key, required this.Travel});
+//////////////////////////////////////////////////////////////
+// ✅ travel DETAIL PAGE
+//////////////////////////////////////////////////////////////
+
+class travelDetail extends StatelessWidget {
+  final dynamic travel;
+
+  const travelDetail({super.key, required this.travel});
 
   @override
   Widget build(BuildContext context) {
-    String imageAsset = 'images/${Travel['image'] ?? 'default.png'}';
+
+    ////////////////////////////////////////////////////////////
+    // ✅ IMAGE URL
+    ////////////////////////////////////////////////////////////
+
+    String imageUrl =
+        "${baseUrl}images/${travel['image']}";
 
     return Scaffold(
-      appBar: AppBar(title: Text(Travel['name'] ?? 'Travel Detail')),
+      appBar: AppBar(
+        title: Text(travel['name'] ?? 'Detail'),
+      ),
+
       body: Padding(
         padding: const EdgeInsets.all(16.0),
+
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // แสดงภาพสินค้า
+
+            //////////////////////////////////////////////////////
+            // 🖼 IMAGE
+            //////////////////////////////////////////////////////
+
             Center(
-              child: Image.asset(
-                imageAsset,
+              child: Image.network(
+                imageUrl,
                 height: 200,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Icon(Icons.error, size: 100);
-                },
+                errorBuilder: (_, __, ___) =>
+                    const Icon(Icons.image_not_supported, size: 100),
               ),
             ),
+
             const SizedBox(height: 20),
-            // ชื่อสินค้า
-            Text('Name: ${Travel['name'] ?? 'No Name'}',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+
+            //////////////////////////////////////////////////////
+            // 🏷 NAME
+            //////////////////////////////////////////////////////
+
+            Text(
+              travel['name'] ?? '',
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
             const SizedBox(height: 10),
-            // รายละเอียดสินค้า
-            Text('Description: ${Travel['description'] ?? 'No Description'}'),
+
+            //////////////////////////////////////////////////////
+            // 📝 DESCRIPTION
+            //////////////////////////////////////////////////////
+
+            Text(travel['description'] ?? ''),
+
             const SizedBox(height: 10),
-            // ราคา
-            Text('Price: ฿${Travel['price'] ?? '0.00'}'),
+
+           
           ],
         ),
       ),
     );
   }
 }
-
-
