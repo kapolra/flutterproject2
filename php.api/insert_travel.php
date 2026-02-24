@@ -27,14 +27,11 @@ if (isset($_FILES['image'])) {
     }
 }
 
-////////////////////////////////////////////////////////////
-// ✅ Insert DB
-////////////////////////////////////////////////////////////
 
 try {
 
     $stmt = $conn->prepare("
-        INSERT INTO products (name,description,image)
+        INSERT INTO travels (name,description,image)
         VALUES (:name,:description,:image)
     ");
 

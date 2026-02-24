@@ -2,283 +2,124 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'add_travel_page.dart';
+import 'edit_travel_page.dart';
 
 void main() => runApp(const MyApp());
 
-//////////////////////////////////////////////////////////////
-// ✅ CONFIG (แก้ตรงนี้ถ้าเปลี่ยนเครื่อง)
-//////////////////////////////////////////////////////////////
-
-const String baseUrl =
-    "http://127.0.0.1/flutterproject2/php.api/";
-
-//////////////////////////////////////////////////////////////
-// ✅ APP ROOT
-//////////////////////////////////////////////////////////////
+const String baseUrl = "http://127.0.0.1/flutterproject2/php_api/";
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: travelList(),
+    return MaterialApp(
+      home: const TravelList(),
       debugShowCheckedModeBanner: false,
+      theme: ThemeData(useMaterial3: true, primarySwatch: Colors.blue),
     );
   }
 }
 
-//////////////////////////////////////////////////////////////
-// ✅ travel LIST PAGEF
-//////////////////////////////////////////////////////////////
-
-class travelList extends StatefulWidget {
-  const travelList({super.key});
-
+class TravelList extends StatefulWidget {
+  const TravelList({super.key});
   @override
-  State<travelList> createState() => _travelListState();
+  State<TravelList> createState() => _TravelListState();
 }
 
-class _travelListState extends State<travelList> {
+class _TravelListState extends State<TravelList> {
   List travels = [];
-  List filteredtravels = [];
-  final TextEditingController searchController = TextEditingController();
+  List filteredTravels = [];
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    fetchtravels();
+    fetchTravels();
   }
 
-  ////////////////////////////////////////////////////////////
-  // ✅ FETCH DATA
-  ////////////////////////////////////////////////////////////
-
-  Future<void> fetchtravels() async {
+  Future<void> fetchTravels() async {
+    setState(() => isLoading = true);
     try {
-      final response = await http.get(
-        Uri.parse("${baseUrl}show_travel.php"),
-      );
-
+      final response = await http.get(Uri.parse("${baseUrl}show_travel.php"));
       if (response.statusCode == 200) {
         setState(() {
           travels = json.decode(response.body);
-          filteredtravels = travels;
+          filteredTravels = travels;
+          isLoading = false;
         });
       }
     } catch (e) {
-      debugPrint("Error: $e");
+      setState(() => isLoading = false);
+      debugPrint("Fetch Error: $e");
     }
   }
 
-  ////////////////////////////////////////////////////////////
-  // ✅ SEARCH
-  ////////////////////////////////////////////////////////////
-
-  void filtertravels(String query) {
+  void filterTravels(String query) {
     setState(() {
-      filteredtravels = travels.where((travel) {
+      filteredTravels = travels.where((travel) {
         final name = travel['name']?.toLowerCase() ?? '';
         return name.contains(query.toLowerCase());
       }).toList();
     });
   }
 
-  ////////////////////////////////////////////////////////////
-  // ✅ UI
-  ////////////////////////////////////////////////////////////
+  Future<void> deleteTravel(int id) async {
+    final response = await http.get(Uri.parse("${baseUrl}delete.php?id=$id"));
+    final data = json.decode(response.body);
+    if (data["success"] == true) {
+      fetchTravels();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("ลบสำเร็จ")));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('travel List')),
-
+      appBar: AppBar(title: const Text('Travel List')),
       body: Column(
         children: [
-
-          //////////////////////////////////////////////////////
-          // 🔍 SEARCH BOX
-          //////////////////////////////////////////////////////
-
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: TextField(
-              controller: searchController,
-              decoration: const InputDecoration(
-                labelText: 'Search by travel name',
-                prefixIcon: Icon(Icons.search),
-              ),
-              onChanged: filtertravels,
+              decoration: const InputDecoration(labelText: 'ค้นหา...', prefixIcon: Icon(Icons.search)),
+              onChanged: filterTravels,
             ),
           ),
-
-          //////////////////////////////////////////////////////
-          // 📦 travel LIST
-          //////////////////////////////////////////////////////
-
           Expanded(
-            child: filteredtravels.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    itemCount: filteredtravels.length,
-                    itemBuilder: (context, index) {
-                      final travel = filteredtravels[index];
-
-                      //////////////////////////////////////////////////////
-                      // ✅ IMAGE URL (สำคัญมาก)
-                      //////////////////////////////////////////////////////
-
-                     String imageUrl =
-                         "${baseUrl}images/${travel['image']}";
-    
-                      return Card(
-                        child: ListTile(
-
-                          //////////////////////////////////////////////////
-                          // 🖼 IMAGE FROM SERVER
-                          //////////////////////////////////////////////////
-
-                          leading: SizedBox(
-                            width: 80,
-                            height: 80,
-                            child: Image.network(
-                              imageUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) =>
-                                  const Icon(Icons.image_not_supported),
-                            ),
-                          ),
-
-                          //////////////////////////////////////////////////
-                          // 🏷 NAME
-                          //////////////////////////////////////////////////
-
-                          title: Text(travel['name'] ?? 'No Name'),
-
-                          //////////////////////////////////////////////////
-                          // 📝 DESCRIPTION
-                          //////////////////////////////////////////////////
-
-                          subtitle: Text(
-                            travel['description'] ?? 'No Description',
-                          ),
-
-
-                          //////////////////////////////////////////////////
-                          // 👉 DETAIL PAGE
-                          //////////////////////////////////////////////////
-
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    travelDetail(travel: travel),
-                              ),
-                            );
+            child: isLoading 
+              ? const Center(child: CircularProgressIndicator())
+              : ListView.builder(
+                  itemCount: filteredTravels.length,
+                  itemBuilder: (context, index) {
+                    final travel = filteredTravels[index];
+                    return Card(
+                      child: ListTile(
+                        leading: Image.network("${baseUrl}images/${travel['image']}", width: 50, height: 50, fit: BoxFit.cover, errorBuilder: (_,__,___)=>const Icon(Icons.image)),
+                        title: Text(travel['name'] ?? ''),
+                        subtitle: Text(travel['description'] ?? '', maxLines: 1),
+                        trailing: PopupMenuButton(
+                          onSelected: (val) {
+                            if(val == 'edit') {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => EditTravelPage(travel: travel))).then((_) => fetchTravels());
+                            } else {
+                              deleteTravel(int.parse(travel['id'].toString()));
+                            }
                           },
+                          itemBuilder: (_) => [
+                            const PopupMenuItem(value: 'edit', child: Text('แก้ไข')),
+                            const PopupMenuItem(value: 'delete', child: Text('ลบ')),
+                          ],
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
+                ),
           ),
         ],
       ),
-
-      ////////////////////////////////////////////////////////
-      // ✅ ADD BUTTON
-      ///////////////////////////////////////////////////////
-
       floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddTravelPage())).then((_) => fetchTravels()),
         child: const Icon(Icons.add),
-
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const AddTravelPage(),
-            ),
-          ).then((value) {
-            fetchtravels(); // ✅ รีโหลดหลังเพิ่มสินค้า
-          });
-        },
-      ),
-    );
-  }
-}
-
-//////////////////////////////////////////////////////////////
-// ✅ travel DETAIL PAGE
-//////////////////////////////////////////////////////////////
-
-class travelDetail extends StatelessWidget {
-  final dynamic travel;
-
-  const travelDetail({super.key, required this.travel});
-
-  @override
-  Widget build(BuildContext context) {
-
-    ////////////////////////////////////////////////////////////
-    // ✅ IMAGE URL
-    ////////////////////////////////////////////////////////////
-
-    String imageUrl =
-        "${baseUrl}images/${travel['image']}";
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(travel['name'] ?? 'Detail'),
-      ),
-
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-
-            //////////////////////////////////////////////////////
-            // 🖼 IMAGE
-            //////////////////////////////////////////////////////
-
-            Center(
-              child: Image.network(
-                imageUrl,
-                height: 200,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) =>
-                    const Icon(Icons.image_not_supported, size: 100),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            //////////////////////////////////////////////////////
-            // 🏷 NAME
-            //////////////////////////////////////////////////////
-
-            Text(
-              travel['name'] ?? '',
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 10),
-
-            //////////////////////////////////////////////////////
-            // 📝 DESCRIPTION
-            //////////////////////////////////////////////////////
-
-            Text(travel['description'] ?? ''),
-
-            const SizedBox(height: 10),
-
-           
-          ],
-        ),
       ),
     );
   }

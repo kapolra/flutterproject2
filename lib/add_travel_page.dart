@@ -7,207 +7,55 @@ import 'package:flutter/foundation.dart';
 
 class AddTravelPage extends StatefulWidget {
   const AddTravelPage({super.key});
-
   @override
   State<AddTravelPage> createState() => _AddTravelPageState();
 }
 
 class _AddTravelPageState extends State<AddTravelPage> {
-
-  ////////////////////////////////////////////////////////////
-  // ✅ Controllers
-  ////////////////////////////////////////////////////////////
-
-  final TextEditingController nameController = TextEditingController();
-
-  final TextEditingController descController = TextEditingController();
-
-  ////////////////////////////////////////////////////////////
-  // ✅ Image (ใช้ XFile รองรับ Web)
-  ////////////////////////////////////////////////////////////
-
+  final nameController = TextEditingController();
+  final descController = TextEditingController();
   XFile? selectedImage;
 
   Future<void> pickImage() async {
-    final picker = ImagePicker();
-
-    final pickedFile = await picker.pickImage(
-      source: ImageSource.gallery,
-    );
-
-    if (pickedFile != null) {
-      setState(() {
-        selectedImage = pickedFile;
-      });
-    }
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (picked != null) setState(() => selectedImage = picked);
   }
 
-  ////////////////////////////////////////////////////////////
-  // ✅ Save Travel + Upload Image
-  ////////////////////////////////////////////////////////////
-
-  Future<void> savetravel() async {
-
-    if (selectedImage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("กรุณาเลือกรูปภาพ")),
-      );
-      return;
-    }
-
-    final url = Uri.parse(
-      "http://localhost/flutterproject2/php.api/insert_travel.php",
-    );
-
-    var request = http.MultipartRequest('POST', url);
-
-    ////////////////////////////////////////////////////////////
-    // ✅ Fields
-    ////////////////////////////////////////////////////////////
-
+  Future<void> saveTravel() async {
+    if (selectedImage == null) return;
+    var request = http.MultipartRequest('POST', Uri.parse("http://127.0.0.1/flutterproject2/php_api/insert_travel.php"));
     request.fields['name'] = nameController.text;
-
     request.fields['description'] = descController.text;
 
-    ////////////////////////////////////////////////////////////
-    // ✅ Upload Image (แยก Web / Mobile)
-    ////////////////////////////////////////////////////////////
-
     if (kIsWeb) {
-
-      final bytes = await selectedImage!.readAsBytes();
-
-      request.files.add(
-        http.MultipartFile.fromBytes(
-          'image',
-          bytes,
-          filename: selectedImage!.name,
-        ),
-      );
-
+      request.files.add(http.MultipartFile.fromBytes('image', await selectedImage!.readAsBytes(), filename: selectedImage!.name));
     } else {
-
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'image',
-          selectedImage!.path,
-        ),
-      );
+      request.files.add(await http.MultipartFile.fromPath('image', selectedImage!.path));
     }
 
-    ////////////////////////////////////////////////////////////
-    // ✅ Execute
-    ////////////////////////////////////////////////////////////
-
-    var response = await request.send();
-    var responseData = await response.stream.bytesToString();
-
-    final data = json.decode(responseData);
-
-    if (data["success"] == true) {
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("เพิ่มสถานที่เรียบร้อย")),
-      );
-
-      Navigator.pop(context, true);
-
-    } else {
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: ${data["error"]}")),
-      );
-    }
+    var res = await request.send();
+    if (res.statusCode == 200) Navigator.pop(context, true);
   }
-
-  ////////////////////////////////////////////////////////////
-  // ✅ UI
-  ////////////////////////////////////////////////////////////
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("เพิ่มสถานที่ท่องเที่ยว")),
-
+      appBar: AppBar(title: const Text("เพิ่มสถานที่")),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-
-              ////////////////////////////////////////////////////////////
-              // 🖼 Image Preview (สำคัญมาก)
-              ////////////////////////////////////////////////////////////
-
-              GestureDetector(
-                onTap: pickImage,
-                child: Container(
-                  height: 150,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    border: Border.all(),
-                  ),
-                  child: selectedImage == null
-                      ? const Center(
-                          child: Text("แตะเพื่อเลือกรูป"),
-                        )
-                      : kIsWeb
-                          ? Image.network(
-                              selectedImage!.path, // ✅ Web
-                              fit: BoxFit.cover,
-                            )
-                          : Image.file(
-                              File(selectedImage!.path), // ✅ Mobile
-                              fit: BoxFit.cover,
-                            ),
-                ),
+        child: Column(
+          children: [
+            GestureDetector(
+              onTap: pickImage,
+              child: Container(
+                height: 150, width: double.infinity, color: Colors.grey[200],
+                child: selectedImage == null ? const Icon(Icons.add_a_photo) : Image.network(selectedImage!.path),
               ),
-
-              const SizedBox(height: 15),
-
-              ////////////////////////////////////////////////////////////
-              // 🏷 Name
-              ////////////////////////////////////////////////////////////
-
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: "ชื่อสถานที่",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-
-              const SizedBox(height: 15),
-
-              ////////////////////////////////////////////////////////////
-              // 📝 Description
-              ////////////////////////////////////////////////////////////
-
-              TextField(
-                controller: descController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: "รายละเอียด",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              ////////////////////////////////////////////////////////////
-              // ✅ Button
-              ////////////////////////////////////////////////////////////
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: savetravel,
-                  child: const Text("บันทึกสถานที่"),
-                ),
-              ),
-            ],
-          ),
+            ),
+            TextField(controller: nameController, decoration: const InputDecoration(labelText: "ชื่อ")),
+            TextField(controller: descController, decoration: const InputDecoration(labelText: "รายละเอียด")),
+            ElevatedButton(onPressed: saveTravel, child: const Text("บันทึก"))
+          ],
         ),
       ),
     );
